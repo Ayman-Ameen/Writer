@@ -51,7 +51,11 @@ def download_papers(query_text, max_results=100, time_query=None, output_folder=
     if len(results) == 0:
         print("No papers found")
         return
-
+    
+    # save the results as JSON
+    with open(os.path.join(output_folder,'results.json'), 'w') as f:
+        f.write(str(results))
+        
     # download the papers
     for counter, result in enumerate(results):
         try: 
