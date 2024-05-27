@@ -53,12 +53,12 @@ def download_papers(query_text, max_results=100, time_query=None, output_folder=
         return
 
     # download the papers
-    for result in results:
+    for counter, result in enumerate(results):
         try: 
             print(result)
             pdf_url = result.pdf_url
             title = result.title
-            path_pdf = os.path.join(output_folder, title.replace(" ", "_")[0:max_char_pdf_name] + ".pdf")
+            path_pdf = os.path.join(output_folder,str(counter)+"_"+ title.replace(" ", "_")[0:max_char_pdf_name] + ".pdf")
             urlretrieve(pdf_url, path_pdf)
             print(f"Downloaded: {path_pdf}")
         except Exception as e:
@@ -74,13 +74,13 @@ Then, download the papers and save them in a folder.
 # Query list 
 query_text_list = [
     "Photonic + AI models",
-    "One dimensional photonic crystal",
-    "Photonics",
-    "Image animation",
-    "Electrical impedance tomography"
+    # "One dimensional photonic crystal",
+    # "Photonics",
+    # "Image animation",
+    # "Electrical impedance tomography"
 ]
 
 for query_text in query_text_list:
     output_folder = query_text.replace(' ', '_').replace('+', '_') + datetime.datetime.now().strftime("_%Y%m%d")
 
-    download_papers(query_text, time_query=get_period('weekly'), output_folder=output_folder)
+    download_papers(query_text, time_query=get_period('yearly'), output_folder=output_folder)
