@@ -77,7 +77,7 @@ Then, download the papers and save them in a folder.
 # Query
 # Query list 
 query_text_list = [
-    "Photonic + AI models",
+    "Photonic AND AI models",
     # "One dimensional photonic crystal",
     # "Photonics",
     # "Image animation",
