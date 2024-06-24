@@ -3,39 +3,54 @@ import datetime
 import os
 from urllib.request import urlretrieve
 
-def get_period(period):
+def get_period(period=None):
     
-    assert period in ['daily', 'weekly', 'monthly', 'yearly']
+    assert period in ['daily', 'weekly', 'monthly', 'yearly', None]
 
-    today = datetime.datetime.now()
-    template = "%Y%m%d"
+    if period is None:
+        time_query = ''
 
-    if period == 'daily':
-        start_date = today
-        end_date = today
-    elif period == 'weekly':
-        start_date = today - datetime.timedelta(days=7)
-        end_date = today
-    elif period == 'monthly':
-        start_date = today - datetime.timedelta(days=30)
-        end_date = today
-    elif period == 'yearly':
-        start_date = today - datetime.timedelta(days=365)
-        end_date = today
     else:
-        raise ValueError("Invalid period")
-    
-    time_query = 'AND submittedDate:[' + start_date.strftime(template) + ' TO ' + end_date.strftime(template) + ']'
+        today = datetime.datetime.now()
+        template = "%Y%m%d"
+
+        if period == 'daily':
+            start_date = today
+            end_date = today
+        elif period == 'weekly':
+            start_date = today - datetime.timedelta(days=7)
+            end_date = today
+        elif period == 'monthly':
+            start_date = today - datetime.timedelta(days=30)
+            end_date = today
+        elif period == 'yearly':
+            start_date = today - datetime.timedelta(days=365)
+            end_date = today
+        else:
+            raise ValueError("Invalid period")
+        
+            time_query = 'AND submittedDate:[' + start_date.strftime(template) + ' TO ' + end_date.strftime(template) + ']'
+
     return time_query
     
+def get_text_query(query_text):
+    if query_text is None:
+        raise ValueError("Query text is required")
+    elif type(query_text) == list:
+        query_text = " AND ".join(query_text)
+    elif type(query_text) != str:
+        raise ValueError("Query text must be a string or a list of strings")
+    query_text = " (" + query_text + ") "
+    return query_text
 
-
+    
 def download_papers(query_text, max_results=100, time_query=None, output_folder='output', max_char_pdf_name=100):
     os.makedirs(output_folder, exist_ok=True)
 
     # Print the query and date
+    query_text = get_text_query(query_text)
     print("searching for papers related to: ", query_text)
-    query = "(" + query_text + ") " + time_query 
+    query = query_text + time_query
 
 
     # Search query
@@ -77,7 +92,19 @@ Then, download the papers and save them in a folder.
 # Query
 # Query list 
 query_text_list = [
-    "Photonic AND AI models",
+    ["photonics", "AI", "inverse design"],
+    ["photonics", "artificial intelligence", "inverse design"],
+    ["photonics", "AI", "design"],
+    ["photonics", "artificial intelligence", "design"],
+    ["photonics", "artificial intelligence"],
+    ["photonics", "AI"],
+    ["nanophotonics", "AI", "inverse design"],
+    ["nanophotonics", "artificial intelligence", "inverse design"],
+    ["nanophotonics", "AI", "design"],
+    ["nanophotonics", "artificial intelligence", "design"],
+    ["nanophotonics", "artificial intelligence"],
+    ["nanophotonics", "AI"],
+    ["nanophotonics", "artificial intelligence"],
     # "One dimensional photonic crystal",
     # "Photonics",
     # "Image animation",
@@ -85,6 +112,8 @@ query_text_list = [
 ]
 
 for query_text in query_text_list:
+
+    query_text = get_text_query(query_text)
     output_folder = query_text.replace(' ', '_').replace('+', '_') + datetime.datetime.now().strftime("_%Y%m%d")
 
-    download_papers(query_text, time_query=get_period('yearly'), output_folder=output_folder)
+    download_papers(query_text, time_query=get_period(None), output_folder=output_folder)
