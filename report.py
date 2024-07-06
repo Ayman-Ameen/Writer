@@ -98,6 +98,8 @@ def get_prompt(prompt_name):
         "summarize": "Summarize the following text:\n \n",
         "outline": "Outline the following text:\n \n",
 
+        "questions":"write a one-page of provoking questions. This is for provoking curiosity of my readers in order to have deeper discussions about the topic. \n \n",
+
         "summarize_sci": "Summarize the scientific article below:\n \n ",
         "review_sci": "Write a review of the scientific article below:\n \n ",
         "write_sci": "Write a scientific article based on the followin g prompt:\n \n" ,
@@ -119,6 +121,7 @@ def process_text(llm, text, prompt_name):
     max_words = get_llm_max_words(llm)
     # prompt = f"Write a review of the scientific article below:\n \n {text}"
     prompt = get_prompt(prompt_name) + text
+    print(f"Prompt length: {len(prompt)}")
     return asyncio.run(prompt_llm(llm, prompt[0:int(max_words)]))
 
 # Load the API key from the environment
@@ -127,9 +130,10 @@ openai.api_key = api_key
 
 # PDF folder 
 folder    = "/Users/ayman/Documents/gpt-researcher/daily_paper_arxiv/Book/Contents"
-# prompt_name = "summarize the following chaper of \"Book name\" book: "
-prompt_name = "Outline the following chaper of \"Book name\" book: "
+# prompt_name = "summarize the following chapter of \"Book name\" book: "
+# prompt_name = "Outline the following chapter of \"Book name\" book: "
 # "summarize" # "summarize" or "outline" or "review_sci" or "write_sci" or "write_poem" or "translate_en" or "translate_fr" or "translate_ar" or "translate_de"
+prompt_name = "Write a one-page of provoking questions about the following book chapter . This is for provoking curiosity of my readers in order to have deeper discussions about the topic. \n \n" 
 
 extension = '.md' # ".pdf" or ".md"
 # file_json = os.path.join(folder, "results.json")
@@ -159,7 +163,7 @@ for counter, file in enumerate(files):
         print(f"Error in processing {file}: {e}")
         continue
 
-report_md.export_report(folder)
+report_md.export_report(folder, f"{prompt_name}.md")
 
 
 
