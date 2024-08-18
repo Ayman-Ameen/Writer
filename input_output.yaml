@@ -1,0 +1,4 @@
+  -main_dir: path/to/main_dir
+  -user_info: path/to/user_info
+  -job_advertisement: path/to/job_advertisement
+  -output: path/to/output
