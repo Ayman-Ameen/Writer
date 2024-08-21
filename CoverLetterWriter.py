@@ -85,7 +85,7 @@ def main(agents_and_actions, user_info, job_advertisement, output_dir):
     app = workflow.compile()
     output_graph = save_graph(app, output_dir)
     # create the steps output file
-    time_stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    time_stamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     output_steps_file = os.path.join(output_dir, time_stamp + steps_output)
     save_file("# Date: " + time_stamp + "\n", output_steps_file)
     # Stream the output
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     user_info          = read_file(os.path.join(input_output_dirs["main_dir"],input_output_dirs["user_info"]))
     job_advertisement  = read_file(os.path.join(input_output_dirs["main_dir"],input_output_dirs["job_advertisement"]))
-    output_dir         = os.path.join(input_output_dirs["main_dir"],input_output_dirs["output_dir"])
+    output_dir         = os.path.join(input_output_dirs["main_dir"],input_output_dirs["output"])
     agents_and_actions = read_file("Writer/CoverLetter.yaml")
 
     main(agents_and_actions, user_info, job_advertisement, output_dir)
