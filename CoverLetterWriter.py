@@ -1,252 +1,121 @@
 import os
 import sys
-import asyncio
-from metagpt.actions import Action
-from metagpt.logs import logger
-from metagpt.roles import Role
-from metagpt.schema import Message
-from metagpt.team import Team
+import yaml
+import functools
+import datetime
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
+from utils import read_file, save_file, run_agent, get_llm_model, AgentState
+from langgraph.graph import Graph, StateGraph
+from langchain_core.messages import BaseMessage, AIMessage
+
 
 '''
 To enable a large language model (LLM) to perform a multi-agent task such as writing a cover letter, several specialized agents or components can be utilized
 '''
+def save_graph(graph, output_dir):
+    output_file = os.path.join(output_dir, "graph.png")
+    with open(output_file,'wb') as file:
+        file.write(graph.get_graph(xray=True).draw_mermaid_png())
+    return output_file
 
-class Write(Action):
-    """
-    This class represents the action of writing for any agent."""   
-    def __init__(self, name, prompt_template):
-        super().__init__()
-        self.name = name
-        self.prompt_template = prompt_template
-    async def run(self, context):
-        prompt = self.prompt_template.format(context=context)
-        response = await self.ask(prompt)  
-        return response
-    
-class Writer(Role):
-    """
-    This class represents the writer role in writing process."""
-    def __init__(self, name, action, watches, action_prompt):
-        super().__init__(name=name, desc=action)
-        self.set_actions([Write(name, action_prompt)])
-        self._watch(watches)
+def combine_messages(messages: list):
+    messages = [message.content if isinstance(message, AIMessage) else message for message in messages]
+    return "\n # " + "\n # ".join(messages)
 
-class Input(Action):
-    """
-    This class represents the action of collecting input from the user."""
-    def __init__(self, name, input_dir, input_files):
-        super().__init__(name=name)
-        self.input_dir = input_dir
-        self.input_files = input_files
-
-    async def run(self):
-        user_info = await self.read_input(self.input_dir, self.input_files[0])        
-        job_advertisement = await self.read_input(self.input_dir, self.input_files[1])
-
-
-        # Merge the user info and job advertisement
-        context = f"""
-        # User Info:
-        {user_info}
-        # Job Advertisement:
-        {job_advertisement}
-        """
-        return await context
-    
-    def read_input(self, input_dir, input_file):
-        with open(os.path.join(input_dir, input_file), 'r') as file:
-            return file.read()
+def get_watched_messages(state, watches):
+    watched_messages = []
+    for watch in watches:
+        message = state["messages"][state["name"].index(watch)]
+        if isinstance(message, AIMessage):
+            message = message.content
+        watched_messages.extend(
+           [ "# " +  watch + ":\n" + message]
+        )
+    return {"context": "\n".join(watched_messages)}
         
-class InputAgent(Role):
-    """
-    This class represents the input agent role in the writing process."""
-    def __init__(self, name, action, input_dir, input_files):
-        super().__init__(name=name, desc=action)
-        self.set_actions([Input(name, input_dir, input_files)])
 
 
-async def main(input_dir, input_files, output_dir):
-    agents_and_actions = [
+def action_llm_response(state="", name="", watch=[], llm_prompt=""):
+    llm = get_llm_model()
+    watched_messages = get_watched_messages(state, watch)
+    prompt = llm_prompt.format(**watched_messages)
+    print("current agent: ", name)
+    return {
+        "name": [name],
+        "messages": [llm.invoke(prompt)]
+    }
 
-    {
-        "name": "User Input Agent",
-        "actions": [
-            "Collects initial information from the user, such as their name, job title, company name, job description, skills, and experiences."
-        ],
-        "watches": [],
-        "input": ["user_info", "job_advertisement"],
-        "llm_prompt": None, # No prompt needed for user input
-    },
+def action_combine_messages(state="", name="", input={},llm_prompt=""):
+    return { "name": [name],
+             "messages":  [llm_prompt.format(**input)]}
 
-    {
-        "name": "Context Understanding Agent",
-        "actions": [
-            "Analyzes the job description and other relevant documents to understand key requirements, responsibilities, and skills needed for the position."
-        ],
-        "watches": ["User Input Agent"],
-        "llm_prompt": 
-        """
-            Based on the following information provided by the user:
-            {context}
-            Analyze the job description to identify key requirements, responsibilities, and necessary skills for this position. Provide a summary of these elements.
-        """
-    },
 
-    {
-        "name": "Profile Analysis Agent",
-        "actions": [
-            "Reviews the user's resume and other provided information to identify strengths, experiences, and skills that align with the job requirements."
-        ],
-        "watches": ["User Input Agent"],
-        "llm_prompt": 
-        """
-            Based on the user's information:
-            {context}
-            Review their resume and other provided details. Identify their strengths, experiences, and skills that align with the key requirements of the job they are applying for.
-        """
-    },
 
-    {
-        "name": "Drafting Agent",
-        "actions": [
-            "Generates a draft of the cover letter using insights from both the Context Understanding Agent and Profile Analysis Agent. Ensures relevant experiences and skills are highlighted effectively."
-        ],
-        "watches": ["Context Understanding Agent", "Profile Analysis Agent"],
-        "llm_prompt": 
-        """
-            You are the Drafting Agent. Your task is to generate a draft of a cover letter using insights provided by both the Context Understanding Agent and Profile Analysis Agent.
-            Context: {context}
 
-            1. Ensure that relevant experiences and skills are highlighted effectively.
-            2. Structure the cover letter in a professional format.
-            3. Make sure to address key points that would be important for the job role.
+# The main function that orchestrates the writing of the cover letter
+def main(agents_and_actions, user_info, job_advertisement, output_dir):
 
-            Begin with an engaging introduction, followed by detailed paragraphs on experience and skills, and conclude with a strong closing statement.
-        """
-    },
-
-    {
-        "name": "Language Refinement Agent",
-        "actions": [
-            "Refines the draft for clarity, coherence, grammar, and style to ensure it meets professional standards."
-        ],
-        "watches": ["Drafting Agent"],
-        "llm_prompt": 
-        """
-            You are the Language Refinement Agent. Your task is to refine the draft of a cover letter created by the Drafting Agent.
-            Context: {context}
-
-            1. Improve clarity and coherence.
-            2. Correct any grammatical errors.
-            3. Enhance overall style to meet professional standards.
-
-            Make sure that each section flows well into the next, maintaining a formal tone throughout.
-        """
-    },
-
-    {
-        "name": "Customization Agent",
-        "actions": [
-            "Tailors sections of the cover letter to match specific aspects of the job description or company culture based on additional user input or contextual clues."
-        ],
-        "watches": ["Language Refinement Agent",  "User Input Agent"],
-        "llm_prompt": 
-        """
-            You are the Customization Agent. Your task is to tailor sections of the refined cover letter to match specific aspects of the job description or company culture based on additional user input or contextual clues.
-            Context: {context}
-
-            1. Customize sections to align with specific job requirements or company values mentioned in user inputs or contextual clues.
-            2. Ensure that each tailored section remains coherent within the overall document.
-
-            Pay special attention to how your customizations enhance alignment with what is sought after in this particular job role or company environment.
-        """
-    },
-
-    {
-    "name": "Feedback Loop/Revision Control",
-    "actions": [
-        "After generating a draft, gathers feedback on parts of cover letter that need adjustments/enhancements.",
-        "Manages multiple iterations based on user feedback until final approval is achieved."
-    ],
-    "watches": ["Drafting Agent", "Customization Agent"],
-    "llm_prompt":
-        """
-        You are an expert in receiving and implementing feedback to improve drafts. 
-        Based on the initial draft generated by the Drafting Agent and modified by the Customization Agent, 
-        gather specific feedback that highlights areas needing adjustments or enhancements. 
-        Coordinate multiple iterations until final approval is achieved.
-        
-        Context: {context}
-        """
+    # Input 
+    input = {"user_info": user_info, "job_advertisement": job_advertisement}
+    # Create the output directory
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     
-   },
+    # Output file names
+    steps_output, output_final = "steps_output.md", "output.md"
 
-    {
-    "name": "Formatting/Polishing",
-    "actions": [
-        "Ensures final document adheres to standard formatting guidelines for professional cover letters.",
-        "Reviews & refines generated content for grammar, tone coherence, & overall quality assurance."
-    ],
-    "watches": ["Feedback Loop/Revision Control"],
-    "llm_prompt":
-        """
-        You are skilled in formatting and polishing professional documents. 
-        After receiving the revised draft from the Feedback Loop/Revision Control Agent, 
-        ensure the cover letter adheres to standard formatting guidelines. 
-        Review and refine the content for grammar, tone coherence, and overall quality.
-        
-        Context: {context}
-        """
-    },
+    workflow = StateGraph(AgentState)
+    state= {"name": [],
+            "messages": [],}  
+    # Iterate over the agents and actions
 
-    {
-        "name": "Validation",
-        "actions":[
-            "Performs a final review for any errors or omissions before completion."
-         ],
-         "watches":["Formatting/Polishing"],
-         "llm_prompt":
-             """
-             You are responsible for performing a final review of documents. 
-             After receiving the polished version from the Formatting/Polishing Agent, check thoroughly 
-             for any errors or omissions to ensure it meets all quality standards before completion.
-             
-             Context: {context}
-             """,
-         "output":[]
-     }
+    for i, agent in enumerate(agents_and_actions):
+        if i==0:
+            workflow.add_node(agent['name'], functools.partial(action_combine_messages, name=agent['name'], input=input, llm_prompt=agent['llm_prompt']))
+            workflow.set_entry_point(agent['name'])
 
-    ]
- 
-    Writers_team = Team()
-    roles = {} 
-    for agent in agents_and_actions:
-
-        if "input" in agent:
-            name = agent["name"]
-            # convert list of actions to string
-            action = "\n".join(agent["actions"])
-            input_dir = input_dir
-            input_files = input_files
-            roles[name] = InputAgent(name, action, input_dir, input_files)
         else:
-            name = agent["name"]
-            action = "\n".join(agent["actions"])
-            watches = [roles[watch] for watch in agent["watches"]]
-            llm_prompt = agent["llm_prompt"]
-            roles[name] = Writer(name, action, watches, llm_prompt)
-        
-        Writers_team.hire([roles[name]])
-    Writers_team.invest(100)
-    Writers_team.run_project("Write a cover letter", send_to=roles["User Input Agent"])
-    await Writers_team.run(n_round=3)
+            workflow.add_node(agent['name'], functools.partial(action_llm_response, name=agent['name'], watch=agent['watches'], llm_prompt=agent['llm_prompt']))
+            workflow.add_edge(agent['watches'], agent['name'])
+            # for watch in agent['watches']:
+            #     workflow.add_edge(watch, agent['name'])
+            if i == len(agents_and_actions) - 1:
+                workflow.set_finish_point(agent['name'])
+        # Run the workflow
+    app = workflow.compile()
+    output_graph = save_graph(app, output_dir)
+    # create the steps output file
+    time_stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    output_steps_file = os.path.join(output_dir, time_stamp + steps_output)
+    save_file("# Date: " + time_stamp + "\n", output_steps_file)
+    # Stream the output
+    for output in app.stream(state):
+        for key, value in output.items():
+            output_text = combine_messages([value["name"][-1],value["messages"][-1],])
+            save_file(output_text, output_steps_file, continue_on_exists=True)
+            # print(f"{key}: {value}")
+        print("================================")
+
+    # Save the final output
+    save_file(output_text, os.path.join(output_dir, time_stamp + output_final), continue_on_exists=True)
+    
+    return 0
 
 if __name__ == "__main__":
-    input_dir = "/Users/ayman/Library/CloudStorage/OneDrive-Personal/Notes/Notes/Skills/Soft Skills/CV/Application"
-    input_files = ["General/Who am I.md", "PosDoc/7.ComputationalHealth/Adv.md"]
-    output_dir = "output"
-    asyncio.run(main(input_dir, input_files, output_dir))
-    logger.info("Writers Team is ready to write a cover letter!")
+
+    input_output_dirs = read_file("input_output.yaml")
+
+    user_info          = read_file(os.path.join(input_output_dirs["main_dir"],input_output_dirs["user_info"]))
+    job_advertisement  = read_file(os.path.join(input_output_dirs["main_dir"],input_output_dirs["job_advertisement"]))
+    output_dir         = os.path.join(input_output_dirs["main_dir"],input_output_dirs["output_dir"])
+    agents_and_actions = read_file("Writer/CoverLetter.yaml")
+
+    main(agents_and_actions, user_info, job_advertisement, output_dir)
+
+
+
+
+
+
 
         
