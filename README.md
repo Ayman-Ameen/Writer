@@ -37,4 +37,5 @@ Contributions are welcome! Please follow these guidelines:
 6. Submit a pull request
 
 ## License
-Later adding the License
+The License will be added later. 
+- The License can be changed without any prior notification. 
