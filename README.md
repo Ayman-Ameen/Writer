@@ -8,6 +8,10 @@ Simple Multi-agent llm to write several stuff like:
 - communication enhancement 
 - ... 
 
+## Write Cover letter 
+
+![Cover writer graph](media/graph_coverletter.png)
+
 
 ## Installation
 
