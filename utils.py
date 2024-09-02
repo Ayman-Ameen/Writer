@@ -3,11 +3,13 @@ import sys
 import yaml
 import asyncio
 import operator
+import datetime
 from langchain_openai import ChatOpenAI
 from typing import TypedDict, Annotated, Sequence, List
 from langchain_core.messages import BaseMessage
 
 
+# Read and save files
 
 def read_file(file_path):
     # Check if the file exists
@@ -37,6 +39,40 @@ def save_file(text, filename, continue_on_exists=False):
     else:
         raise ValueError("File extension not supported")
     
+# Time functions
+
+def get_time_period(period=None):
+    
+    assert period in ['daily', 'weekly', 'monthly', 'yearly', None]
+
+    if period is None:
+        time_query = ''
+
+    else:
+        today = datetime.datetime.now()
+        template = "%Y%m%d"
+
+        if period == 'daily':
+            start_date = today
+            end_date = today
+        elif period == 'weekly':
+            start_date = today - datetime.timedelta(days=7)
+            end_date = today
+        elif period == 'monthly':
+            start_date = today - datetime.timedelta(days=30)
+            end_date = today
+        elif period == 'yearly':
+            start_date = today - datetime.timedelta(days=365)
+            end_date = today
+        else:
+            raise ValueError("Invalid period")
+        
+        time_query = 'AND submittedDate:[' + start_date.strftime(template) + ' TO ' + end_date.strftime(template) + ']'
+
+    return time_query
+
+# LLM functions
+
 def get_llm_model(model='gpt-4o', temperature=0.55, max_tokens=4000, api_key=os.environ.get("OPENAI_API_KEY")):
     llm = ChatOpenAI(
         model=model,
@@ -58,6 +94,7 @@ def run_agent(llm_properties, prompt):
 
 
 
+# Agent State
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]

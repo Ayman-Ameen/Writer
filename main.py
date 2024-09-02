@@ -1,37 +1,8 @@
 import arxiv
-import datetime
 import os
 from urllib.request import urlretrieve
 
-def get_period(period=None):
-    
-    assert period in ['daily', 'weekly', 'monthly', 'yearly', None]
 
-    if period is None:
-        time_query = ''
-
-    else:
-        today = datetime.datetime.now()
-        template = "%Y%m%d"
-
-        if period == 'daily':
-            start_date = today
-            end_date = today
-        elif period == 'weekly':
-            start_date = today - datetime.timedelta(days=7)
-            end_date = today
-        elif period == 'monthly':
-            start_date = today - datetime.timedelta(days=30)
-            end_date = today
-        elif period == 'yearly':
-            start_date = today - datetime.timedelta(days=365)
-            end_date = today
-        else:
-            raise ValueError("Invalid period")
-        
-            time_query = 'AND submittedDate:[' + start_date.strftime(template) + ' TO ' + end_date.strftime(template) + ']'
-
-    return time_query
     
 def get_text_query(query_text):
     if query_text is None:
@@ -108,7 +79,6 @@ query_text_list = [
     # "One dimensional photonic crystal",
     # "Photonics",
     # "Image animation",
-    # "Electrical impedance tomography"
 ]
 
 for query_text in query_text_list:
