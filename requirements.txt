@@ -1,1 +1,2 @@
-metagpt==0.8.1
+langchain
+langgraph

@@ -17,9 +17,19 @@ Simple Multi-agent llm to write several stuff like:
 
 To install this project, follow these steps:
 
-1. Clone the repository: `https://github.com/Ayman-Ameen/Writer.git`
-2. Navigate to the project directory: `cd Writer`
-3. Install ...
+1. Clone the repository: 
+```git clone https://github.com/Ayman-Ameen/Writer.git```
+2. Navigate to the project directory:
+    ```cd Writer```
+3. Create a virtual environment: 
+    ```conda create -n writer python=3.11```
+4. Activate the virtual environment: 
+    ```conda activate writer```
+6. Install the package: 
+    ```conda install pip```
+7. Install the dependencies: 
+    ```pip install -r requirements.txt```
+
 
 ## Usage
 
